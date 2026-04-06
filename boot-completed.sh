@@ -15,4 +15,13 @@ MODDIR=${0%/*}
   hn=$(grep -m1 'instance_name' /data/easytier/config.toml 2>/dev/null | sed 's/.*= *"\(.*\)"/\1/')
   [ -n "$hn" ] && hostname "$hn"
   easytier start
+  # update KSU description
+  if command -v ksud >/dev/null 2>&1; then
+    export KSU_MODULE="EasyTierForMagisk"
+    sleep 1
+    if pidof easytier-core >/dev/null 2>&1; then
+      ip=$(grep -m1 'ipv4' /data/easytier/config.toml 2>/dev/null | sed 's/.*= *"\(.*\)"/\1/')
+      ksud module config set override.description "✅ Running | IP: ${ip:-dhcp}" 2>/dev/null
+    fi
+  fi
 )&
