@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>EasyTier</title>
 <style>
-:root { --bg: #1a1a2e; --card: #16213e; --accent: #0f3460; --green: #4ecca3; --red: #e74c3c; --text: #eee; --dim: #888; }
+:root { --bg: #1a1a2e; --card: #16213e; --accent: #0f3460; --green: #4ecca3; --red: #e74c3c; --yellow: #e2b714; --text: #eee; --dim: #888; }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); padding: 16px; }
 h2 { font-size: 18px; margin-bottom: 12px; }
@@ -14,21 +14,35 @@ h2 { font-size: 18px; margin-bottom: 12px; }
 .status-dot.on { background: var(--green); }
 .status-dot.off { background: var(--red); }
 .row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; }
-.label { color: var(--dim); font-size: 13px; }
-.value { font-size: 13px; word-break: break-all; }
 .btn-group { display: flex; gap: 8px; margin-top: 12px; }
 .btn { flex: 1; padding: 10px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
 .btn-start { background: var(--green); color: #000; }
 .btn-stop { background: var(--red); color: #fff; }
 .btn-restart { background: var(--accent); color: #fff; }
-.peers { margin-top: 8px; }
-.peer { background: var(--accent); border-radius: 8px; padding: 10px; margin-top: 6px; font-size: 13px; }
+.btn-save { background: var(--yellow); color: #000; }
 .log { background: #0d1117; border-radius: 8px; padding: 10px; margin-top: 8px; font-size: 12px; font-family: monospace; max-height: 200px; overflow-y: auto; white-space: pre-wrap; color: var(--dim); }
-.loading { text-align: center; color: var(--dim); padding: 20px; }
 .editor { background: #0d1117; border: 1px solid #333; border-radius: 8px; padding: 10px; margin-top: 8px; font-size: 12px; font-family: monospace; color: var(--text); width: 100%; min-height: 200px; resize: vertical; }
-.btn-save { background: #e2b714; color: #000; }
+.loading { text-align: center; color: var(--dim); padding: 20px; }
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--green); color: #000; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; display: none; z-index: 99; }
 .toast.error { background: var(--red); color: #fff; }
+
+/* table styles */
+.info-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+.info-table td { padding: 8px 10px; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.info-table td:first-child { color: var(--dim); white-space: nowrap; width: 1%; }
+.info-table td:last-child { word-break: break-all; }
+.info-table tr:last-child td { border-bottom: none; }
+
+/* peer card */
+.peer-card { background: var(--accent); border-radius: 10px; padding: 12px; margin-top: 8px; }
+.peer-card .peer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.peer-card .peer-name { font-weight: 600; font-size: 14px; }
+.peer-card .peer-badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+.peer-badge.p2p { background: var(--green); color: #000; }
+.peer-badge.relay { background: var(--yellow); color: #000; }
+.peer-badge.offline { background: var(--red); color: #fff; }
+.peer-card .peer-detail { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 12px; }
+.peer-card .peer-detail .dim { color: var(--dim); }
 </style>
 </head>
 <body>
@@ -48,7 +62,7 @@ h2 { font-size: 18px; margin-bottom: 12px; }
 
 <div class="card">
   <h2>Peers</h2>
-  <div id="peers" class="peers"><div class="loading">Loading...</div></div>
+  <div id="peers"><div class="loading">Loading...</div></div>
 </div>
 
 <div class="card">
@@ -84,40 +98,105 @@ async function run(cmd) {
   }
 }
 
+// parse pipe-separated rows: | key | value |
+function parsePipeRows(text) {
+  return text.split('\n')
+    .filter(l => l.includes('|') && !l.match(/^[\s|:-]+$/))
+    .map(l => l.split('|').map(c => c.trim()).filter(Boolean))
+    .filter(cols => cols.length >= 2);
+}
+
+function renderNodeInfo(text) {
+  const rows = parsePipeRows(text);
+  if (!rows.length) return '';
+  let html = '<table class="info-table">';
+  for (const cols of rows) {
+    html += `<tr><td>${cols[0]}</td><td>${cols[1] || '-'}</td></tr>`;
+  }
+  html += '</table>';
+  return html;
+}
+
+function renderPeers(text) {
+  const lines = text.split('\n').filter(l => l.includes('|') && !l.match(/^[\s|:-]+$/));
+  if (lines.length < 2) {
+    return text.trim() ? `<div class="peer-card"><div style="font-size:13px;white-space:pre-wrap">${text}</div></div>` : '';
+  }
+  const headers = lines[0].split('|').map(c => c.trim()).filter(Boolean).map(h => h.toLowerCase());
+  const rows = lines.slice(1).map(l => {
+    const cols = l.split('|').map(c => c.trim()).filter(c => c !== undefined);
+    // re-split properly keeping empty cols
+    const raw = l.split('|');
+    raw.shift(); raw.pop(); // remove first/last empty from leading/trailing |
+    return raw.map(c => c.trim());
+  });
+
+  return rows.filter(cols => {
+    const hi = headers.indexOf('cost');
+    return hi < 0 || cols[hi] !== 'Local';
+  }).map(cols => {
+    const r = {};
+    headers.forEach((h, i) => r[h] = cols[i] || '');
+    const name = r['hostname'] || 'Unknown';
+    const ip = r['ipv4'] || '';
+    const cost = r['cost'] || '';
+    const latency = r['lat(ms)'] || '';
+    const loss = r['loss'] || '';
+    const rx = r['rx'] || '';
+    const tx = r['tx'] || '';
+    const tunnel = r['tunnel'] || '';
+    const nat = r['nat'] || '';
+    const version = r['version'] || '';
+
+    const isRelay = cost.toLowerCase().includes('relay');
+    const isP2P = cost.toLowerCase().includes('p2p');
+    const badgeClass = isRelay ? 'relay' : isP2P ? 'p2p' : 'offline';
+    const badgeText = cost || 'unknown';
+
+    return `<div class="peer-card">
+      <div class="peer-header">
+        <span class="peer-name">${name}</span>
+        <span class="peer-badge ${badgeClass}">${badgeText}</span>
+      </div>
+      <div class="peer-detail">
+        ${ip ? `<span><span class="dim">IP</span> ${ip}</span>` : ''}
+        ${latency && latency !== '-' ? `<span><span class="dim">Latency</span> ${latency}ms</span>` : ''}
+        ${loss && loss !== '-' ? `<span><span class="dim">Loss</span> ${loss}</span>` : ''}
+        ${tunnel && tunnel !== '-' ? `<span><span class="dim">Tunnel</span> ${tunnel}</span>` : ''}
+        ${rx && rx !== '-' ? `<span><span class="dim">RX</span> ${rx}</span>` : ''}
+        ${tx && tx !== '-' ? `<span><span class="dim">TX</span> ${tx}</span>` : ''}
+        ${nat ? `<span><span class="dim">NAT</span> ${nat}</span>` : ''}
+        ${version ? `<span><span class="dim">Ver</span> ${version.split('-')[0]}</span>` : ''}
+      </div>
+    </div>`;
+  }).join('') || '<div style="color:var(--dim);padding:8px">No remote peers</div>';
+}
+
 async function refresh() {
-  // status
   const st = await run('easytier status');
   const running = st.stdout.includes('running');
   document.getElementById('statusBadge').innerHTML =
     `<span class="status-dot ${running ? 'on' : 'off'}"></span>${running ? 'Running' : 'Stopped'}`;
 
-  // info
   if (running) {
+    const ip = await run('easytier-cli node info 2>/dev/null');
+    document.getElementById('info').innerHTML = ip.stdout.trim() ? renderNodeInfo(ip.stdout) : '';
+
     const r = await run('easytier-cli peer list 2>/dev/null');
     const peers = r.stdout.trim();
     document.getElementById('peers').innerHTML = peers
-      ? `<div class="peer">${peers.replace(/\n/g, '<br>')}</div>`
-      : '<div style="color:var(--dim)">No peers connected</div>';
-
-    const route = await run('easytier-cli route list 2>/dev/null');
-    let infoHtml = '';
-    const ip = await run('easytier-cli node info 2>/dev/null');
-    if (ip.stdout.trim()) {
-      infoHtml += `<div class="row"><span class="label">Node Info</span></div><div class="peer">${ip.stdout.trim().replace(/\n/g, '<br>')}</div>`;
-    }
-    document.getElementById('info').innerHTML = infoHtml;
+      ? renderPeers(peers)
+      : '<div style="color:var(--dim);padding:8px">No peers connected</div>';
   } else {
-    document.getElementById('peers').innerHTML = '<div style="color:var(--dim)">Service not running</div>';
+    document.getElementById('peers').innerHTML = '<div style="color:var(--dim);padding:8px">Service not running</div>';
     document.getElementById('info').innerHTML = '';
   }
 
-  // config (only update if not editing)
   if (!window._editing) {
     const cfg = await run('cat /data/easytier/config.toml 2>/dev/null');
     document.getElementById('configView').textContent = cfg.stdout || 'No config found';
   }
 
-  // error log
   const log = await run('tail -50 /data/easytier/error.log 2>/dev/null');
   document.getElementById('log').textContent = log.stdout || 'No errors';
 }
@@ -142,18 +221,14 @@ function toast(msg, isError) {
 }
 
 window.toggleEdit = async function() {
-  const view = document.getElementById('configView');
-  const edit = document.getElementById('configEdit');
-  const btns = document.getElementById('configBtns');
-  const btn = document.getElementById('editBtn');
   if (!window._editing) {
     const cfg = await run('cat /data/easytier/config.toml 2>/dev/null');
-    edit.value = cfg.stdout;
-    view.style.display = 'none';
-    edit.style.display = 'block';
-    btns.style.display = 'flex';
-    btn.textContent = 'Editing...';
-    btn.disabled = true;
+    document.getElementById('configEdit').value = cfg.stdout;
+    document.getElementById('configView').style.display = 'none';
+    document.getElementById('configEdit').style.display = 'block';
+    document.getElementById('configBtns').style.display = 'flex';
+    document.getElementById('editBtn').textContent = 'Editing...';
+    document.getElementById('editBtn').disabled = true;
     window._editing = true;
   }
 };
@@ -162,15 +237,13 @@ window.cancelEdit = function() {
   document.getElementById('configView').style.display = 'block';
   document.getElementById('configEdit').style.display = 'none';
   document.getElementById('configBtns').style.display = 'none';
-  const btn = document.getElementById('editBtn');
-  btn.textContent = 'Edit';
-  btn.disabled = false;
+  document.getElementById('editBtn').textContent = 'Edit';
+  document.getElementById('editBtn').disabled = false;
   window._editing = false;
 };
 
 window.saveConfig = async function() {
   const content = document.getElementById('configEdit').value;
-  const escaped = content.replace(/'/g, "'\\''");
   const r = await run(`cat > /data/easytier/config.toml << 'ETCONF'\n${content}\nETCONF`);
   if (r.errno === 0) {
     toast('Config saved');

@@ -35,6 +35,8 @@ easytier status   # 查看状态
 
 KernelSU/APatch 用户可在 Manager 中打开模块 WebUI 进行管理和配置编辑。
 
+KernelSU 用户在模块列表中可直接看到运行状态和 IP 信息。
+
 ## 配置
 
 配置文件位于 `/data/easytier/config.toml`，示例：
@@ -65,7 +67,3 @@ mtu = 1300
 - APatch
 - Android ≥ 9 (API 28)
 - arm64 设备
-
-## License
-
-LGPL-3.0
