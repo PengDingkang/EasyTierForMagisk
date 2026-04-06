@@ -1,0 +1,75 @@
+#!/system/bin/sh
+
+path="/data/easytier"
+bin_name="easytier-core"
+pid_file="$path/pid"
+config_file="$path/config.toml"
+
+# find busybox across Magisk/KSU/APatch
+for bb in /data/adb/magisk/busybox /data/adb/ksu/bin/busybox /data/adb/ap/bin/busybox; do
+  [ -f "$bb" ] && busybox="$bb" && break
+done
+# fallback to PATH
+[ -z "$busybox" ] && busybox="busybox"
+
+bin_status() {
+  [ "$($busybox pidof "$bin_name")" ] && return 0 || return 1
+}
+
+display_bin_status() {
+  if bin_status; then
+    echo -e "\033[32m● easytier is running (pid: $(cat "$pid_file" 2>/dev/null))\033[0m"
+  else
+    echo -e "\033[31m● easytier is stopped\033[0m"
+  fi
+}
+
+start_service() {
+  if bin_status; then
+    echo "${bin_name} is already running"
+    return
+  fi
+  if [ ! -f "$config_file" ]; then
+    echo "ERROR: config not found at $config_file"
+    return 1
+  fi
+  # set hostname from instance_name before starting
+  hn=$(grep -m1 'instance_name' "$config_file" 2>/dev/null | sed 's/.*=\s*"\(.*\)"/\1/')
+  [ -n "$hn" ] && hostname "$hn"
+  nohup "$bin_name" -c "$config_file" > /dev/null 2> "$path/error.log" &
+  echo -n $! > "$pid_file"
+  sleep 1
+  ip rule add from all lookup main pref 1 2>/dev/null
+  if bin_status; then
+    echo "start success"
+    rm -f "$path/.not_configured" 2>/dev/null
+  else
+    echo "start failed, check /data/easytier/error.log"
+  fi
+}
+
+stop_service() {
+  if bin_status; then
+    echo "stopping ${bin_name}..."
+    kill "$(cat "$pid_file" 2>/dev/null)" 2>/dev/null || killall "$bin_name" 2>/dev/null
+    local i=0
+    while bin_status && [ $i -lt 20 ]; do
+      sleep 0.5
+      i=$((i + 1))
+    done
+    bin_status && kill -9 "$(cat "$pid_file" 2>/dev/null)" 2>/dev/null
+    ip rule del from all lookup main pref 1 2>/dev/null
+    hostname localhost
+  else
+    echo "${bin_name} is already stopped"
+  fi
+  rm -f "$pid_file" 2>/dev/null
+}
+
+case "$1" in
+  start)   start_service; display_bin_status ;;
+  stop)    stop_service; display_bin_status ;;
+  restart) stop_service; start_service; display_bin_status ;;
+  status)  display_bin_status ;;
+  *)       echo "Usage: easytier {start|stop|restart|status}" ;;
+esac

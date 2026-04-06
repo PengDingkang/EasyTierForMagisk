@@ -1,0 +1,20 @@
+instance_name = "android"
+dhcp = false
+ipv4 = "10.144.144.10"
+listeners = []
+exit_nodes = []
+rpc_portal = "127.0.0.1:15888"
+
+[network_identity]
+network_name = "usn"
+network_secret = "pw"
+
+[[peer]]
+uri = "tcp://YOUR_SERVER_IP:11010"
+
+[flags]
+default_protocol = "udp"
+enable_encryption = true
+enable_ipv6 = false
+mtu = 1300
+latency_first = true

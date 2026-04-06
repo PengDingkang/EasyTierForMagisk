@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EasyTier</title>
+<style>
+:root { --bg: #1a1a2e; --card: #16213e; --accent: #0f3460; --green: #4ecca3; --red: #e74c3c; --text: #eee; --dim: #888; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); padding: 16px; }
+h2 { font-size: 18px; margin-bottom: 12px; }
+.card { background: var(--card); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+.status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+.status-dot.on { background: var(--green); }
+.status-dot.off { background: var(--red); }
+.row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; }
+.label { color: var(--dim); font-size: 13px; }
+.value { font-size: 13px; word-break: break-all; }
+.btn-group { display: flex; gap: 8px; margin-top: 12px; }
+.btn { flex: 1; padding: 10px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.btn-start { background: var(--green); color: #000; }
+.btn-stop { background: var(--red); color: #fff; }
+.btn-restart { background: var(--accent); color: #fff; }
+.peers { margin-top: 8px; }
+.peer { background: var(--accent); border-radius: 8px; padding: 10px; margin-top: 6px; font-size: 13px; }
+.log { background: #0d1117; border-radius: 8px; padding: 10px; margin-top: 8px; font-size: 12px; font-family: monospace; max-height: 200px; overflow-y: auto; white-space: pre-wrap; color: var(--dim); }
+.loading { text-align: center; color: var(--dim); padding: 20px; }
+.editor { background: #0d1117; border: 1px solid #333; border-radius: 8px; padding: 10px; margin-top: 8px; font-size: 12px; font-family: monospace; color: var(--text); width: 100%; min-height: 200px; resize: vertical; }
+.btn-save { background: #e2b714; color: #000; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--green); color: #000; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; display: none; z-index: 99; }
+.toast.error { background: var(--red); color: #fff; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="row">
+    <h2>EasyTier</h2>
+    <span id="statusBadge"><span class="status-dot off"></span>Checking...</span>
+  </div>
+  <div id="info"></div>
+  <div class="btn-group">
+    <button class="btn btn-start" onclick="control('start')">Start</button>
+    <button class="btn btn-stop" onclick="control('stop')">Stop</button>
+    <button class="btn btn-restart" onclick="control('restart')">Restart</button>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Peers</h2>
+  <div id="peers" class="peers"><div class="loading">Loading...</div></div>
+</div>
+
+<div class="card">
+  <div class="row">
+    <h2>Config</h2>
+    <button class="btn btn-save" style="flex:none;padding:6px 16px" onclick="toggleEdit();" id="editBtn">Edit</button>
+  </div>
+  <div id="configView" class="log">Loading...</div>
+  <textarea id="configEdit" class="editor" style="display:none"></textarea>
+  <div id="configBtns" class="btn-group" style="display:none">
+    <button class="btn btn-save" onclick="saveConfig()">Save</button>
+    <button class="btn btn-restart" onclick="saveAndRestart()">Save & Restart</button>
+    <button class="btn btn-stop" onclick="cancelEdit()">Cancel</button>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<div class="card">
+  <h2>Error Log</h2>
+  <div id="log" class="log">Loading...</div>
+</div>
+
+<script type="module">
+import { exec } from 'https://esm.sh/kernelsu';
+
+async function run(cmd) {
+  try {
+    const { errno, stdout, stderr } = await exec(cmd);
+    return { errno, stdout: stdout || '', stderr: stderr || '' };
+  } catch(e) {
+    return { errno: -1, stdout: '', stderr: e.message };
+  }
+}
+
+async function refresh() {
+  // status
+  const st = await run('easytier status');
+  const running = st.stdout.includes('running');
+  document.getElementById('statusBadge').innerHTML =
+    `<span class="status-dot ${running ? 'on' : 'off'}"></span>${running ? 'Running' : 'Stopped'}`;
+
+  // info
+  if (running) {
+    const r = await run('easytier-cli peer list 2>/dev/null');
+    const peers = r.stdout.trim();
+    document.getElementById('peers').innerHTML = peers
+      ? `<div class="peer">${peers.replace(/\n/g, '<br>')}</div>`
+      : '<div style="color:var(--dim)">No peers connected</div>';
+
+    const route = await run('easytier-cli route list 2>/dev/null');
+    let infoHtml = '';
+    const ip = await run('easytier-cli node info 2>/dev/null');
+    if (ip.stdout.trim()) {
+      infoHtml += `<div class="row"><span class="label">Node Info</span></div><div class="peer">${ip.stdout.trim().replace(/\n/g, '<br>')}</div>`;
+    }
+    document.getElementById('info').innerHTML = infoHtml;
+  } else {
+    document.getElementById('peers').innerHTML = '<div style="color:var(--dim)">Service not running</div>';
+    document.getElementById('info').innerHTML = '';
+  }
+
+  // config (only update if not editing)
+  if (!window._editing) {
+    const cfg = await run('cat /data/easytier/config.toml 2>/dev/null');
+    document.getElementById('configView').textContent = cfg.stdout || 'No config found';
+  }
+
+  // error log
+  const log = await run('tail -50 /data/easytier/error.log 2>/dev/null');
+  document.getElementById('log').textContent = log.stdout || 'No errors';
+}
+
+window.control = async function(action) {
+  const btn = event.target;
+  btn.disabled = true;
+  btn.textContent = '...';
+  await run(`easytier ${action}`);
+  await new Promise(r => setTimeout(r, 1500));
+  await refresh();
+  btn.disabled = false;
+  btn.textContent = action.charAt(0).toUpperCase() + action.slice(1);
+};
+
+function toast(msg, isError) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = isError ? 'toast error' : 'toast';
+  t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 2500);
+}
+
+window.toggleEdit = async function() {
+  const view = document.getElementById('configView');
+  const edit = document.getElementById('configEdit');
+  const btns = document.getElementById('configBtns');
+  const btn = document.getElementById('editBtn');
+  if (!window._editing) {
+    const cfg = await run('cat /data/easytier/config.toml 2>/dev/null');
+    edit.value = cfg.stdout;
+    view.style.display = 'none';
+    edit.style.display = 'block';
+    btns.style.display = 'flex';
+    btn.textContent = 'Editing...';
+    btn.disabled = true;
+    window._editing = true;
+  }
+};
+
+window.cancelEdit = function() {
+  document.getElementById('configView').style.display = 'block';
+  document.getElementById('configEdit').style.display = 'none';
+  document.getElementById('configBtns').style.display = 'none';
+  const btn = document.getElementById('editBtn');
+  btn.textContent = 'Edit';
+  btn.disabled = false;
+  window._editing = false;
+};
+
+window.saveConfig = async function() {
+  const content = document.getElementById('configEdit').value;
+  const escaped = content.replace(/'/g, "'\\''");
+  const r = await run(`cat > /data/easytier/config.toml << 'ETCONF'\n${content}\nETCONF`);
+  if (r.errno === 0) {
+    toast('Config saved');
+    cancelEdit();
+    await refresh();
+  } else {
+    toast('Save failed: ' + r.stderr, true);
+  }
+};
+
+window.saveAndRestart = async function() {
+  await saveConfig();
+  await run('easytier restart');
+  await new Promise(r => setTimeout(r, 1500));
+  await refresh();
+  toast('Config saved & service restarted');
+};
+
+refresh();
+setInterval(refresh, 10000);
+</script>
+</body>
+</html>
