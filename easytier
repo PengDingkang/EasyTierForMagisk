@@ -30,9 +30,9 @@ update_desc() {
 
 display_bin_status() {
   if bin_status; then
-    echo -e "\033[32m● easytier is running (pid: $(cat "$pid_file" 2>/dev/null))\033[0m"
+    printf "\033[32m● easytier is running (pid: %s)\033[0m\n" "$(cat "$pid_file" 2>/dev/null)"
   else
-    echo -e "\033[31m● easytier is stopped\033[0m"
+    printf "\033[31m● easytier is stopped\033[0m\n"
   fi
   update_desc
 }
