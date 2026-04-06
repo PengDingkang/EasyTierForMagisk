@@ -34,7 +34,7 @@ start_service() {
     return 1
   fi
   # set hostname from instance_name before starting
-  hn=$(grep -m1 'instance_name' "$config_file" 2>/dev/null | sed 's/.*=\s*"\(.*\)"/\1/')
+  hn=$(grep -m1 'instance_name' "$config_file" 2>/dev/null | sed 's/.*= *"\(.*\)"/\1/')
   [ -n "$hn" ] && hostname "$hn"
   nohup "$bin_name" -c "$config_file" > /dev/null 2> "$path/error.log" &
   echo -n $! > "$pid_file"
