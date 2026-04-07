@@ -19,7 +19,7 @@
 1. 从 [EasyTier Releases](https://github.com/EasyTier/EasyTier/releases) 下载 `easytier-linux-aarch64` 包
 2. 将 `easytier-core` 和 `easytier-cli` 放入模块根目录
 3. 打包为 zip，在 Magisk/KSU/APatch Manager 中刷入
-4. 编辑配置文件 `/data/easytier/config.toml`（填入你的服务器地址和网络信息）
+4. 编辑配置文件 `/data/adb/easytier/config/config.toml`（填入你的服务器地址和网络信息）
 5. 手动运行 `easytier start` 或重启设备
 
 > ⚠ 首次安装不会自动启动服务，需要先编辑好配置。首次成功启动后，后续重启会自动运行。
@@ -39,7 +39,7 @@ KernelSU 用户在模块列表中可直接看到运行状态和 IP 信息。
 
 ## 配置
 
-配置文件位于 `/data/easytier/config.toml`，示例：
+配置文件位于 `/data/adb/easytier/config/config.toml`，示例：
 
 ```toml
 instance_name = "android"

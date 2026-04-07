@@ -193,11 +193,11 @@ async function refresh() {
   }
 
   if (!window._editing) {
-    const cfg = await run('cat /data/easytier/config.toml 2>/dev/null');
+    const cfg = await run('cat /data/adb/easytier/config/config.toml 2>/dev/null');
     document.getElementById('configView').textContent = cfg.stdout || 'No config found';
   }
 
-  const log = await run('tail -50 /data/easytier/error.log 2>/dev/null');
+  const log = await run('tail -50 /data/adb/easytier/error.log 2>/dev/null');
   document.getElementById('log').textContent = log.stdout || 'No errors';
 }
 
@@ -222,7 +222,7 @@ function toast(msg, isError) {
 
 window.toggleEdit = async function() {
   if (!window._editing) {
-    const cfg = await run('cat /data/easytier/config.toml 2>/dev/null');
+    const cfg = await run('cat /data/adb/easytier/config/config.toml 2>/dev/null');
     document.getElementById('configEdit').value = cfg.stdout;
     document.getElementById('configView').style.display = 'none';
     document.getElementById('configEdit').style.display = 'block';
@@ -244,7 +244,7 @@ window.cancelEdit = function() {
 
 window.saveConfig = async function() {
   const content = document.getElementById('configEdit').value;
-  const r = await run(`cat > /data/easytier/config.toml << 'ETCONF'\n${content}\nETCONF`);
+  const r = await run(`cat > /data/adb/easytier/config/config.toml << 'ETCONF'\n${content}\nETCONF`);
   if (r.errno === 0) {
     toast('Config saved');
     cancelEdit();

@@ -1,9 +1,9 @@
 #!/system/bin/sh
 
-path="/data/easytier"
+path="/data/adb/easytier"
 bin_name="easytier-core"
 pid_file="$path/pid"
-config_file="$path/config.toml"
+config_file="$path/config/config.toml"
 
 # find busybox across Magisk/KSU/APatch
 for bb in /data/adb/magisk/busybox /data/adb/ksu/bin/busybox /data/adb/ap/bin/busybox; do
@@ -57,7 +57,7 @@ start_service() {
     echo "start success"
     rm -f "$path/.not_configured" 2>/dev/null
   else
-    echo "start failed, check /data/easytier/error.log"
+    echo "start failed, check /data/adb/easytier/error.log"
   fi
 }
 

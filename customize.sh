@@ -32,16 +32,16 @@ fi
 ui_print "- Installing EasyTier for Magisk/KSU/APatch"
 
 # data directory for config and runtime
-if [ ! -d "/data/easytier" ]; then
-  mkdir -p /data/easytier
-  set_perm /data/easytier 0 0 0755
+if [ ! -d "/data/adb/easytier/config" ]; then
+  mkdir -p /data/adb/easytier/config
+  set_perm /data/adb/easytier 0 0 0755
 fi
 
 # install default config if not exists
-if [ ! -f "/data/easytier/config.toml" ]; then
-  cp -f "$MODPATH/config.toml" /data/easytier/
-  touch /data/easytier/.not_configured
-  ui_print "- Default config installed to /data/easytier/config.toml"
+if [ ! -f "/data/adb/easytier/config/config.toml" ]; then
+  cp -f "$MODPATH/config.toml" /data/adb/easytier/config/
+  touch /data/adb/easytier/.not_configured
+  ui_print "- Default config installed to /data/adb/easytier/config/config.toml"
   ui_print "- ⚠ Please edit config before starting!"
 else
   ui_print "- Existing config found, keeping it"
@@ -63,5 +63,5 @@ set_perm "$MODPATH/system/bin/easytier-cli" 0 0 0755
 set_perm "$MODPATH/system/bin/easytier" 0 0 0755
 
 ui_print "- Installation complete, reboot your device"
-ui_print "- Config: /data/easytier/config.toml"
+ui_print "- Config: /data/adb/easytier/config/config.toml"
 ui_print "- Manage: easytier {start|stop|restart|status}"
