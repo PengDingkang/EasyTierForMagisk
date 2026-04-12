@@ -46,6 +46,13 @@ if [ ! -f "/data/adb/easytier/config/config.toml" ]; then
 else
   ui_print "- Existing config found, keeping it"
 fi
+
+# install default module settings if not exists
+if [ ! -f "/data/adb/easytier/autostart.conf" ]; then
+  echo "AUTO_START=1" > /data/adb/easytier/autostart.conf
+  set_perm /data/adb/easytier/autostart.conf 0 0 0644
+  ui_print "- Auto-start is enabled by default"
+fi
 rm -f "$MODPATH/config.toml"
 
 # install binaries to module system/bin overlay

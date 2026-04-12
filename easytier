@@ -4,6 +4,7 @@ path="/data/adb/easytier"
 bin_name="easytier-core"
 pid_file="$path/pid"
 config_file="$path/config/config.toml"
+autostart_file="$path/autostart.conf"
 
 # find busybox across Magisk/KSU/APatch
 for bb in /data/adb/magisk/busybox /data/adb/ksu/bin/busybox /data/adb/ap/bin/busybox; do
@@ -14,6 +15,17 @@ done
 
 bin_status() {
   [ "$($busybox pidof "$bin_name")" ] && return 0 || return 1
+}
+
+get_autostart() {
+  AUTO_START=1
+  [ -f "$autostart_file" ] && . "$autostart_file"
+  echo "${AUTO_START:-1}"
+}
+
+set_autostart() {
+  mkdir -p "$path"
+  printf "AUTO_START=%s\n" "$1" > "$autostart_file"
 }
 
 # update KSU module description
@@ -33,6 +45,11 @@ display_bin_status() {
     printf "\033[32m● easytier is running (pid: %s)\033[0m\n" "$(cat "$pid_file" 2>/dev/null)"
   else
     printf "\033[31m● easytier is stopped\033[0m\n"
+  fi
+  if [ "$(get_autostart)" = "1" ]; then
+    printf "● boot auto start: enabled\n"
+  else
+    printf "● boot auto start: disabled\n"
   fi
   update_desc
 }
@@ -80,9 +97,11 @@ stop_service() {
 }
 
 case "$1" in
-  start)   start_service; display_bin_status ;;
-  stop)    stop_service; display_bin_status ;;
-  restart) stop_service; start_service; display_bin_status ;;
-  status)  display_bin_status ;;
-  *)       echo "Usage: easytier {start|stop|restart|status}" ;;
+  start)     start_service; display_bin_status ;;
+  stop)      stop_service; display_bin_status ;;
+  restart)   stop_service; start_service; display_bin_status ;;
+  status)    display_bin_status ;;
+  enable)    set_autostart 1; echo "boot auto start: enabled" ;;
+  disable)   set_autostart 0; echo "boot auto start: disabled" ;;
+  *)         echo "Usage: easytier {start|stop|restart|status|enable|disable}" ;;
 esac

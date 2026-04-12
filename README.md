@@ -4,11 +4,12 @@
 
 ## 功能
 
-- 开机自动启动（首次安装需先配置）
-- 命令行管理（start/stop/restart/status）
+- 可配置的开机自动启动（首次安装需先配置）
+- 命令行管理（start/stop/restart/status/enable/disable）
 - KernelSU/APatch WebUI 管理界面
   - 查看运行状态与节点信息
   - Peer 列表实时查看
+  - 开机自启动开关
   - 在线编辑配置文件，支持保存并重启
   - 错误日志查看
 - 兼容 Magisk、KernelSU、APatch 三大框架
@@ -22,7 +23,7 @@
 4. 编辑配置文件 `/data/adb/easytier/config/config.toml`（填入你的服务器地址和网络信息）
 5. 手动运行 `easytier start` 或重启设备
 
-> ⚠ 首次安装不会自动启动服务，需要先编辑好配置。首次成功启动后，后续重启会自动运行。
+> ⚠ 首次安装不会自动启动服务，需要先编辑好配置。默认启用“开机自动启动”，你也可以在 WebUI 中随时关闭。
 
 ## 管理
 
@@ -30,7 +31,9 @@
 easytier start    # 启动
 easytier stop     # 停止
 easytier restart  # 重启
-easytier status   # 查看状态
+easytier status   # 查看运行状态和开机自启状态
+easytier enable   # 开启开机自启
+easytier disable  # 关闭开机自启
 ```
 
 KernelSU/APatch 用户可在 Manager 中打开模块 WebUI 进行管理和配置编辑。

@@ -14,12 +14,16 @@ h2 { font-size: 18px; margin-bottom: 12px; }
 .status-dot.on { background: var(--green); }
 .status-dot.off { background: var(--red); }
 .row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; }
+.row.wrap { gap: 12px; flex-wrap: wrap; }
 .btn-group { display: flex; gap: 8px; margin-top: 12px; }
 .btn { flex: 1; padding: 10px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
 .btn-start { background: var(--green); color: #000; }
 .btn-stop { background: var(--red); color: #fff; }
 .btn-restart { background: var(--accent); color: #fff; }
 .btn-save { background: var(--yellow); color: #000; }
+.toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); }
+.toggle input { width: 16px; height: 16px; accent-color: var(--green); }
+.toggle-hint { margin-top: 8px; font-size: 12px; color: var(--dim); }
 .log { background: #0d1117; border-radius: 8px; padding: 10px; margin-top: 8px; font-size: 12px; font-family: monospace; max-height: 200px; overflow-y: auto; white-space: pre-wrap; color: var(--dim); }
 .editor { background: #0d1117; border: 1px solid #333; border-radius: 8px; padding: 10px; margin-top: 8px; font-size: 12px; font-family: monospace; color: var(--text); width: 100%; min-height: 200px; resize: vertical; }
 .loading { text-align: center; color: var(--dim); padding: 20px; }
@@ -70,6 +74,14 @@ h2 { font-size: 18px; margin-bottom: 12px; }
     <h2>Config</h2>
     <button class="btn btn-save" style="flex:none;padding:6px 16px" onclick="toggleEdit();" id="editBtn">Edit</button>
   </div>
+  <div class="row wrap">
+    <label class="toggle">
+      <input type="checkbox" id="autoStartToggle" onchange="saveAutoStart(this.checked)">
+      <span>Boot Auto Start</span>
+    </label>
+    <span id="autoStartStatus" style="font-size:13px;color:var(--dim)">Loading...</span>
+  </div>
+  <div class="toggle-hint">Controls whether EasyTier starts automatically after Android finishes booting.</div>
   <div id="configView" class="log">Loading...</div>
   <textarea id="configEdit" class="editor" style="display:none"></textarea>
   <div id="configBtns" class="btn-group" style="display:none">
@@ -197,6 +209,11 @@ async function refresh() {
     document.getElementById('configView').textContent = cfg.stdout || 'No config found';
   }
 
+  const autoStart = await run("sh -c 'AUTO_START=1; [ -f /data/adb/easytier/autostart.conf ] && . /data/adb/easytier/autostart.conf; echo ${AUTO_START:-1}'");
+  const enabled = autoStart.stdout.trim() !== '0';
+  document.getElementById('autoStartToggle').checked = enabled;
+  document.getElementById('autoStartStatus').textContent = enabled ? 'Enabled' : 'Disabled';
+
   const log = await run('tail -50 /data/adb/easytier/error.log 2>/dev/null');
   document.getElementById('log').textContent = log.stdout || 'No errors';
 }
@@ -250,6 +267,25 @@ window.saveConfig = async function() {
     cancelEdit();
     await refresh();
   } else {
+    toast('Save failed: ' + r.stderr, true);
+  }
+};
+
+window.saveAutoStart = async function(enabled) {
+  const toggle = document.getElementById('autoStartToggle');
+  const status = document.getElementById('autoStartStatus');
+  toggle.disabled = true;
+  status.textContent = 'Saving...';
+  const content = `AUTO_START=${enabled ? '1' : '0'}`;
+  const r = await run(`cat > /data/adb/easytier/autostart.conf << 'ETAUTO'\n${content}\nETAUTO`);
+  toggle.disabled = false;
+  if (r.errno === 0) {
+    toggle.checked = enabled;
+    status.textContent = enabled ? 'Enabled' : 'Disabled';
+    toast(enabled ? 'Boot auto start enabled' : 'Boot auto start disabled');
+  } else {
+    toggle.checked = !enabled;
+    status.textContent = (!enabled) ? 'Enabled' : 'Disabled';
     toast('Save failed: ' + r.stderr, true);
   }
 };

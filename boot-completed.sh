@@ -11,6 +11,13 @@ MODDIR=${0%/*}
   sleep 5
   # skip auto-start if not configured yet
   [ -f /data/adb/easytier/.not_configured ] && exit 0
+  auto_start=1
+  if [ -f /data/adb/easytier/autostart.conf ]; then
+    # shellcheck disable=SC1091
+    . /data/adb/easytier/autostart.conf
+    auto_start=${AUTO_START:-1}
+  fi
+  [ "$auto_start" = "1" ] || exit 0
   # set hostname from instance_name in config
   hn=$(grep -m1 'instance_name' /data/adb/easytier/config/config.toml 2>/dev/null | sed 's/.*= *"\(.*\)"/\1/')
   [ -n "$hn" ] && hostname "$hn"
