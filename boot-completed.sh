@@ -2,8 +2,6 @@
 # EasyTier boot-completed script (module script, NOT general script)
 # Runs after boot is fully completed
 
-MODDIR=${0%/*}
-
 (
   until [ "$(getprop sys.boot_completed)" = "1" ]; do
     sleep 5

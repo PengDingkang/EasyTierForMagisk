@@ -19,6 +19,7 @@ bin_status() {
 
 get_autostart() {
   AUTO_START=1
+  # shellcheck disable=SC1090
   [ -f "$autostart_file" ] && . "$autostart_file"
   echo "${AUTO_START:-1}"
 }
@@ -33,7 +34,7 @@ update_desc() {
   command -v ksud >/dev/null 2>&1 || return
   export KSU_MODULE="EasyTierForMagisk"
   if bin_status; then
-    local ip=$(grep -m1 'ipv4' "$config_file" 2>/dev/null | sed 's/.*= *"\(.*\)"/\1/')
+    ip=$(grep -m1 'ipv4' "$config_file" 2>/dev/null | sed 's/.*= *"\(.*\)"/\1/')
     ksud module config set override.description "✅ Running | IP: ${ip:-dhcp}" 2>/dev/null
   else
     ksud module config set override.description "⏹ Stopped" 2>/dev/null
@@ -67,7 +68,7 @@ start_service() {
   hn=$(grep -m1 'instance_name' "$config_file" 2>/dev/null | sed 's/.*= *"\(.*\)"/\1/')
   [ -n "$hn" ] && hostname "$hn"
   nohup "$bin_name" -c "$config_file" > /dev/null 2> "$path/error.log" &
-  echo -n $! > "$pid_file"
+  printf '%s' "$!" > "$pid_file"
   sleep 1
   ip rule add from all lookup main pref 1 2>/dev/null
   if bin_status; then
@@ -82,7 +83,7 @@ stop_service() {
   if bin_status; then
     echo "stopping ${bin_name}..."
     kill "$(cat "$pid_file" 2>/dev/null)" 2>/dev/null || killall "$bin_name" 2>/dev/null
-    local i=0
+    i=0
     while bin_status && [ $i -lt 20 ]; do
       sleep 0.5
       i=$((i + 1))

@@ -16,6 +16,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Install tools
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck unzip
+
       - name: Read module metadata
         id: meta
         shell: bash
@@ -34,6 +40,10 @@ jobs:
           sh -n boot-completed.sh
           sh -n uninstall.sh
           sh -n easytier
+          shellcheck customize.sh
+          shellcheck boot-completed.sh
+          shellcheck uninstall.sh
+          shellcheck easytier
 
       - name: Create module package
         shell: bash
@@ -50,6 +60,56 @@ jobs:
             easytier-core \
             module.prop \
             uninstall.sh
+
+      - name: Verify package contents
+        shell: bash
+        run: |
+          package="dist/${{ steps.meta.outputs.package_name }}"
+          unzip -Z -1 "$package" | tee package-list.txt
+
+          required_paths=(
+            "META-INF/"
+            "META-INF/com/"
+            "META-INF/com/google/"
+            "META-INF/com/google/android/"
+            "META-INF/com/google/android/update-binary"
+            "META-INF/com/google/android/updater-script"
+            "webroot/"
+            "webroot/index.html"
+            "boot-completed.sh"
+            "config.toml"
+            "customize.sh"
+            "easytier"
+            "easytier-cli"
+            "easytier-core"
+            "module.prop"
+            "uninstall.sh"
+          )
+
+          forbidden_patterns=(
+            "^tmp/"
+            "^dist/"
+            "^\\.git/"
+            "^\\.github/"
+            "^\\.gitattributes$"
+            "^\\.gitignore$"
+            "^README\\.md$"
+            "^LICENSE$"
+          )
+
+          for path in "${required_paths[@]}"; do
+            if ! grep -Fxq "$path" package-list.txt; then
+              echo "Missing required path in package: $path"
+              exit 1
+            fi
+          done
+
+          for pattern in "${forbidden_patterns[@]}"; do
+            if grep -Eq "$pattern" package-list.txt; then
+              echo "Forbidden path matched in package: $pattern"
+              exit 1
+            fi
+          done
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v6
