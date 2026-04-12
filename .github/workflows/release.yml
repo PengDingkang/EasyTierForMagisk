@@ -85,13 +85,22 @@ jobs:
           }
           EOF
 
+      - name: Update repository update.json
+        if: ${{ !github.event.inputs.prerelease }}
+        shell: bash
+        run: |
+          cp dist/update.json update.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add update.json
+          git diff --cached --quiet || git commit -m "Update update.json for ${{ steps.meta.outputs.tag_name }}"
+          git push origin HEAD:${{ github.ref_name }}
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.meta.outputs.tag_name }}
           name: ${{ steps.meta.outputs.release_name }}
           prerelease: ${{ github.event.inputs.prerelease }}
-          files: |
-            dist/${{ steps.meta.outputs.package_name }}
-            dist/update.json
+          files: dist/${{ steps.meta.outputs.package_name }}
           generate_release_notes: true

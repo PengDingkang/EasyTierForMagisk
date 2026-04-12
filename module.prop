@@ -4,4 +4,4 @@ version=v1.1.0
 versionCode=10100
 author=Nagisa_Cheese
 description=Use EasyTier VPN mesh on Android via Magisk/KSU/APatch (core v2.6.0)
-updateJson=https://github.com/PengDingkang/EasyTierForMagisk/releases/latest/download/update.json
+updateJson=https://raw.githubusercontent.com/PengDingkang/EasyTierForMagisk/main/update.json
