@@ -21,7 +21,7 @@ jobs:
         shell: bash
         run: |
           module_version="$(sed -n 's/^version=//p' module.prop)"
-          core_version="$(sed -n 's/^description=.*(core \(v[0-9.]*\)).*$/\1/p' module.prop)"
+          core_version="$(tr -d '\r\n' < CORE_VERSION)"
           package_name="EasyTierForMagisk-${module_version}-core-${core_version}.zip"
           echo "module_version=${module_version}" >> "$GITHUB_OUTPUT"
           echo "core_version=${core_version}" >> "$GITHUB_OUTPUT"
@@ -39,8 +39,17 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist
-          zip -qr "dist/${{ steps.meta.outputs.package_name }}" . \
-            -x "tmp/*" ".git/*" ".github/*"
+          zip -qr "dist/${{ steps.meta.outputs.package_name }}" \
+            META-INF \
+            webroot \
+            boot-completed.sh \
+            config.toml \
+            customize.sh \
+            easytier \
+            easytier-cli \
+            easytier-core \
+            module.prop \
+            uninstall.sh
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v6

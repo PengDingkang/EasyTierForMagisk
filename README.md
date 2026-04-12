@@ -5,7 +5,7 @@
 ## 版本说明
 
 - 模块版本：独立维护，用于表示本仓库自身的功能与修复更新
-- EasyTier Core 版本：表示当前打包附带的 `easytier-core` / `easytier-cli` 上游版本
+- EasyTier Core 版本：表示当前打包附带的 `easytier-core` / `easytier-cli` 上游版本，由仓库根目录的 `CORE_VERSION` 文件维护
 
 例如，一个版本可以表示为：
 
