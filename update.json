@@ -2,5 +2,5 @@
   "version": "v1.1.1",
   "versionCode": 10101,
   "zipUrl": "https://github.com/PengDingkang/EasyTierForMagisk/releases/download/v1.1.1/EasyTierForMagisk-v1.1.1-core-v2.6.0.zip",
-  "changelog": "https://github.com/PengDingkang/EasyTierForMagisk/releases/tag/v1.1.1"
+  "changelog": "https://raw.githubusercontent.com/PengDingkang/EasyTierForMagisk/main/changelog.md"
 }

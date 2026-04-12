@@ -81,11 +81,11 @@ jobs:
             "version": "${{ steps.meta.outputs.module_version }}",
             "versionCode": $(sed -n 's/^versionCode=//p' module.prop),
             "zipUrl": "https://github.com/${{ github.repository }}/releases/download/${{ steps.meta.outputs.tag_name }}/${{ steps.meta.outputs.package_name }}",
-            "changelog": "https://github.com/${{ github.repository }}/releases/tag/${{ steps.meta.outputs.tag_name }}"
+            "changelog": "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/changelog.md"
           }
           EOF
 
-      - name: Update repository update.json
+      - name: Update repository update files
         if: ${{ !github.event.inputs.prerelease }}
         shell: bash
         run: |
