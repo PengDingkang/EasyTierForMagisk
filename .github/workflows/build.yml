@@ -1,0 +1,50 @@
+name: Build Module
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read module metadata
+        id: meta
+        shell: bash
+        run: |
+          module_version="$(sed -n 's/^version=//p' module.prop)"
+          core_version="$(sed -n 's/^description=.*(core \(v[0-9.]*\)).*$/\1/p' module.prop)"
+          package_name="EasyTierForMagisk-${module_version}-core-${core_version}.zip"
+          echo "module_version=${module_version}" >> "$GITHUB_OUTPUT"
+          echo "core_version=${core_version}" >> "$GITHUB_OUTPUT"
+          echo "package_name=${package_name}" >> "$GITHUB_OUTPUT"
+
+      - name: Validate shell scripts
+        shell: bash
+        run: |
+          sh -n customize.sh
+          sh -n boot-completed.sh
+          sh -n uninstall.sh
+          sh -n easytier
+
+      - name: Create module package
+        shell: bash
+        run: |
+          mkdir -p dist
+          zip -qr "dist/${{ steps.meta.outputs.package_name }}" . \
+            -x "tmp/*" ".git/*" ".github/*"
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.package_name }}
+          path: dist/${{ steps.meta.outputs.package_name }}
+          if-no-files-found: error

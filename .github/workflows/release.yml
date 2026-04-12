@@ -1,0 +1,74 @@
+name: Release Module
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: Release tag to create, e.g. v1.0.0
+        required: false
+        type: string
+      release_name:
+        description: Release title override
+        required: false
+        type: string
+      prerelease:
+        description: Mark release as prerelease
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read module metadata
+        id: meta
+        shell: bash
+        run: |
+          module_version="$(sed -n 's/^version=//p' module.prop)"
+          core_version="$(sed -n 's/^description=.*(core \(v[0-9.]*\)).*$/\1/p' module.prop)"
+          tag_name="${{ github.event.inputs.tag_name }}"
+          release_name="${{ github.event.inputs.release_name }}"
+          if [ -z "$tag_name" ]; then
+            tag_name="$module_version"
+          fi
+          if [ -z "$release_name" ]; then
+            release_name="EasyTier For Magisk ${module_version} (core ${core_version})"
+          fi
+          package_name="EasyTierForMagisk-${module_version}-core-${core_version}.zip"
+          echo "module_version=${module_version}" >> "$GITHUB_OUTPUT"
+          echo "core_version=${core_version}" >> "$GITHUB_OUTPUT"
+          echo "tag_name=${tag_name}" >> "$GITHUB_OUTPUT"
+          echo "release_name=${release_name}" >> "$GITHUB_OUTPUT"
+          echo "package_name=${package_name}" >> "$GITHUB_OUTPUT"
+
+      - name: Validate shell scripts
+        shell: bash
+        run: |
+          sh -n customize.sh
+          sh -n boot-completed.sh
+          sh -n uninstall.sh
+          sh -n easytier
+
+      - name: Create release package
+        shell: bash
+        run: |
+          mkdir -p dist
+          zip -qr "dist/${{ steps.meta.outputs.package_name }}" . \
+            -x "tmp/*" ".git/*" ".github/*"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag_name }}
+          name: ${{ steps.meta.outputs.release_name }}
+          prerelease: ${{ github.event.inputs.prerelease }}
+          files: dist/${{ steps.meta.outputs.package_name }}
+          generate_release_notes: true

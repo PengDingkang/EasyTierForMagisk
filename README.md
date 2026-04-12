@@ -2,6 +2,27 @@
 
 在 Android 设备上以系统级 TUN 模式运行 [EasyTier](https://github.com/EasyTier/EasyTier) VPN 组网。
 
+## 版本说明
+
+- 模块版本：独立维护，用于表示本仓库自身的功能与修复更新
+- EasyTier Core 版本：表示当前打包附带的 `easytier-core` / `easytier-cli` 上游版本
+
+例如，一个版本可以表示为：
+
+- Module: `v1.0.0`
+- Bundled EasyTier Core: `v2.6.0`
+
+## 和官方实现的区别
+
+官方项目已经提供了 `easytier-magisk` 与 `easytier-web-dashboard`。本仓库并不是对官方实现的替代，而是一个更偏向 Android 设备本地运维体验的实现：
+
+- 提供内置 WebUI，可直接在 KernelSU/APatch Manager 里查看状态、Peer、日志并编辑本机配置
+- 提供统一的本地命令行入口：`easytier {start|stop|restart|status|enable|disable}`
+- 支持开机自启开关，且状态会同时显示在 WebUI 和命令行中
+- 明确面向 Magisk、KernelSU、APatch 三种框架
+
+相对地，官方实现更偏向原生脚本方案与官方 Dashboard 生态，例如热点/USB 共享转发、启动参数模式，以及独立的 Web Dashboard。
+
 ## 功能
 
 - 可配置的开机自动启动（首次安装需先配置）
@@ -24,6 +45,8 @@
 5. 手动运行 `easytier start` 或重启设备
 
 > ⚠ 首次安装不会自动启动服务，需要先编辑好配置。默认启用“开机自动启动”，你也可以在 WebUI 中随时关闭。
+
+仓库已提供 GitHub Actions，可用于自动校验脚本、打包模块，以及手动创建 Release。
 
 ## 管理
 

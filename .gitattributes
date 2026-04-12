@@ -1,2 +1,11 @@
+.gitattributes text eol=lf
 *.sh text eol=lf
+*.md text eol=lf
+*.prop text eol=lf
+*.toml text eol=lf
+*.html text eol=lf
+*.yml text eol=lf
+*.js text eol=lf
+*.css text eol=lf
 easytier text eol=lf
+*.bat text eol=crlf
