@@ -64,11 +64,25 @@ jobs:
           zip -qr "dist/${{ steps.meta.outputs.package_name }}" . \
             -x "tmp/*" ".git/*" ".github/*"
 
+      - name: Generate update JSON
+        shell: bash
+        run: |
+          cat > dist/update.json <<EOF
+          {
+            "version": "${{ steps.meta.outputs.module_version }}",
+            "versionCode": $(sed -n 's/^versionCode=//p' module.prop),
+            "zipUrl": "https://github.com/${{ github.repository }}/releases/download/${{ steps.meta.outputs.tag_name }}/${{ steps.meta.outputs.package_name }}",
+            "changelog": "https://github.com/${{ github.repository }}/releases/tag/${{ steps.meta.outputs.tag_name }}"
+          }
+          EOF
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.meta.outputs.tag_name }}
           name: ${{ steps.meta.outputs.release_name }}
           prerelease: ${{ github.event.inputs.prerelease }}
-          files: dist/${{ steps.meta.outputs.package_name }}
+          files: |
+            dist/${{ steps.meta.outputs.package_name }}
+            dist/update.json
           generate_release_notes: true
