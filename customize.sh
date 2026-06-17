@@ -32,15 +32,16 @@ fi
 ui_print "- Installing EasyTier for Magisk/KSU/APatch"
 
 # data directory for config and runtime
-if [ ! -d "/data/adb/easytier/config" ]; then
-  mkdir -p /data/adb/easytier/config
-  set_perm /data/adb/easytier 0 0 0755
+et_data="/data/adb/easytier"
+if [ ! -d "$et_data/config" ]; then
+  mkdir -p "$et_data/config"
+  set_perm "$et_data" 0 0 0755
 fi
 
 # install default config if not exists
-if [ ! -f "/data/adb/easytier/config/config.toml" ]; then
-  cp -f "$MODPATH/config.toml" /data/adb/easytier/config/
-  touch /data/adb/easytier/.not_configured
+if [ ! -f "$et_data/config/config.toml" ]; then
+  cp -f "$MODPATH/config.toml" "$et_data/config/"
+  touch "$et_data/.not_configured"
   ui_print "- Default config installed to /data/adb/easytier/config/config.toml"
   ui_print "- ⚠ Please edit config before starting!"
 else
@@ -48,19 +49,23 @@ else
 fi
 
 # install default module settings if not exists
-if [ ! -f "/data/adb/easytier/autostart.conf" ]; then
-  echo "AUTO_START=1" > /data/adb/easytier/autostart.conf
-  set_perm /data/adb/easytier/autostart.conf 0 0 0644
+if [ ! -f "$et_data/autostart.conf" ]; then
+  echo "AUTO_START=1" > "$et_data/autostart.conf"
+  set_perm "$et_data/autostart.conf" 0 0 0644
   ui_print "- Auto-start is enabled by default"
 fi
 rm -f "$MODPATH/config.toml"
 
-# install binaries to module system/bin overlay
+# install binaries to module system/bin overlay and data-dir fallback
 ui_print "- Installing binaries"
 mkdir -p "$MODPATH/system/bin"
-mv -f "$MODPATH/easytier-core" "$MODPATH/system/bin/"
-mv -f "$MODPATH/easytier-cli" "$MODPATH/system/bin/"
-mv -f "$MODPATH/easytier" "$MODPATH/system/bin/"
+cp -f "$MODPATH/easytier-core" "$MODPATH/system/bin/"
+cp -f "$MODPATH/easytier-cli" "$MODPATH/system/bin/"
+cp -f "$MODPATH/easytier" "$MODPATH/system/bin/"
+cp -f "$MODPATH/easytier-core" "$et_data/easytier-core"
+cp -f "$MODPATH/easytier-cli" "$et_data/easytier-cli"
+cp -f "$MODPATH/easytier" "$et_data/easytier"
+rm -f "$MODPATH/easytier-core" "$MODPATH/easytier-cli" "$MODPATH/easytier"
 
 # permissions
 ui_print "- Setting permissions"
@@ -68,6 +73,9 @@ set_perm_recursive "$MODPATH" 0 0 0755 0644
 set_perm "$MODPATH/system/bin/easytier-core" 0 0 0755
 set_perm "$MODPATH/system/bin/easytier-cli" 0 0 0755
 set_perm "$MODPATH/system/bin/easytier" 0 0 0755
+set_perm "$et_data/easytier-core" 0 0 0755
+set_perm "$et_data/easytier-cli" 0 0 0755
+set_perm "$et_data/easytier" 0 0 0755
 
 ui_print "- Installation complete, reboot your device"
 ui_print "- Config: /data/adb/easytier/config/config.toml"

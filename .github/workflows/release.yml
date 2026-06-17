@@ -85,6 +85,30 @@ jobs:
           }
           EOF
 
+      - name: Generate release notes from changelog
+        shell: bash
+        run: |
+          version="${{ steps.meta.outputs.module_version }}"
+          awk -v version="$version" '
+            /^# / {
+              if (in_section) exit
+              if (index($0, version) > 0) {
+                in_section = 1
+                found = 1
+                next
+              }
+            }
+            in_section { print }
+            END {
+              if (!found) exit 1
+            }
+          ' changelog.md > dist/release_notes.md
+          sed -i -e '/./,$!d' dist/release_notes.md
+          if [ ! -s dist/release_notes.md ]; then
+            echo "No changelog content found for ${version}"
+            exit 1
+          fi
+
       - name: Update repository update files
         if: ${{ !github.event.inputs.prerelease }}
         shell: bash
@@ -103,4 +127,4 @@ jobs:
           name: ${{ steps.meta.outputs.release_name }}
           prerelease: ${{ github.event.inputs.prerelease }}
           files: dist/${{ steps.meta.outputs.package_name }}
-          generate_release_notes: true
+          body_path: dist/release_notes.md

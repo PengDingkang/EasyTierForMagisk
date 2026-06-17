@@ -9,8 +9,8 @@
 
 例如，一个版本可以表示为：
 
-- Module: `v1.0.0`
-- Bundled EasyTier Core: `v2.6.0`
+- Module: `v1.1.2`
+- Bundled EasyTier Core: `v2.6.4`
 
 ## 和官方实现的区别
 
@@ -45,6 +45,8 @@
 5. 手动运行 `easytier start` 或重启设备
 
 > ⚠ 首次安装不会自动启动服务，需要先编辑好配置。默认启用“开机自动启动”，你也可以在 WebUI 中随时关闭。
+>
+> KernelSU 未安装 meta-overlayfs/元模块时，系统 PATH 里可能没有 `easytier` 命令；模块 WebUI 和开机启动会自动使用 `/data/adb/easytier/easytier` fallback。需要手动执行命令时，可使用完整路径 `/data/adb/easytier/easytier start`。
 
 仓库已提供 GitHub Actions，可用于自动校验脚本、打包模块，以及手动创建 Release。
 
@@ -93,3 +95,5 @@ mtu = 1300
 - APatch
 - Android ≥ 9 (API 28)
 - arm64 设备
+
+KernelSU 用户不强制要求安装 meta-overlayfs/元模块；安装后模块会同时在 `/data/adb/easytier/` 放置一份运行入口，用于无系统 overlay 环境下的 WebUI 和开机启动。

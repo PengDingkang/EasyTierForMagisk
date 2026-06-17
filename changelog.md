@@ -1,3 +1,10 @@
+# EasyTier For Magisk v1.1.2
+
+- Updated bundled EasyTier Core to `v2.6.4`
+- Added KernelSU no-overlay fallback paths for WebUI and boot auto-start
+
+Core version: `v2.6.4`
+
 # EasyTier For Magisk v1.1.1
 
 - Switched module update metadata to a static repository `update.json`

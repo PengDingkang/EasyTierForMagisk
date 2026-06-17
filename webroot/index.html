@@ -105,6 +105,10 @@ h2 { font-size: 18px; margin-bottom: 12px; }
 <script type="module">
 import { exec } from 'https://esm.sh/kernelsu';
 
+const ET_DATA = '/data/adb/easytier';
+const ET_CMD_FALLBACK = `${ET_DATA}/easytier`;
+let etCmd = 'easytier';
+
 async function run(cmd) {
   try {
     const { errno, stdout, stderr } = await exec(cmd);
@@ -112,6 +116,15 @@ async function run(cmd) {
   } catch(e) {
     return { errno: -1, stdout: '', stderr: e.message };
   }
+}
+
+async function initCmd() {
+  const r = await run('command -v easytier 2>/dev/null || which easytier 2>/dev/null');
+  if (!r.stdout.trim()) etCmd = ET_CMD_FALLBACK;
+}
+
+function et(args) {
+  return `${etCmd} ${args}`;
 }
 
 function stripAnsi(text) {
@@ -195,16 +208,16 @@ function renderPeers(text) {
 }
 
 async function refresh() {
-  const st = await run('easytier status');
+  const st = await run(et('status'));
   const running = st.stdout.includes('running');
   document.getElementById('statusBadge').innerHTML =
     `<span class="status-dot ${running ? 'on' : 'off'}"></span>${running ? 'Running' : 'Stopped'}`;
 
   if (running) {
-    const ip = await run('easytier-cli node info 2>/dev/null');
+    const ip = await run(et('cli node info 2>/dev/null'));
     document.getElementById('info').innerHTML = ip.stdout.trim() ? renderNodeInfo(ip.stdout) : '';
 
-    const r = await run('easytier-cli peer list 2>/dev/null');
+    const r = await run(et('cli peer list 2>/dev/null'));
     const peers = r.stdout.trim();
     document.getElementById('peers').innerHTML = peers
       ? renderPeers(peers)
@@ -232,7 +245,7 @@ window.control = async function(action) {
   const btn = event.target;
   btn.disabled = true;
   btn.textContent = '...';
-  await run(`easytier ${action}`);
+  await run(et(action));
   await new Promise(r => setTimeout(r, 1500));
   await refresh();
   btn.disabled = false;
@@ -302,7 +315,7 @@ window.saveAutoStart = async function(enabled) {
 
 window.saveAndRestart = async function() {
   await saveConfig();
-  await run('easytier restart');
+  await run(et('restart'));
   await new Promise(r => setTimeout(r, 1500));
   await refresh();
   toast('Config saved & service restarted');
@@ -323,8 +336,10 @@ window.clearLog = async function() {
   }
 };
 
-refresh();
-setInterval(refresh, 10000);
+initCmd().then(() => {
+  refresh();
+  setInterval(refresh, 10000);
+});
 </script>
 </body>
 </html>
