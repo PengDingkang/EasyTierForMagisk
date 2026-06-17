@@ -34,8 +34,8 @@ jobs:
         run: |
           module_version="$(sed -n 's/^version=//p' module.prop)"
           core_version="$(tr -d '\r\n' < CORE_VERSION)"
-          tag_name="${{ github.event.inputs.tag_name }}"
-          release_name="${{ github.event.inputs.release_name }}"
+          tag_name="${{ inputs.tag_name }}"
+          release_name="${{ inputs.release_name }}"
           if [ -z "$tag_name" ]; then
             tag_name="$module_version"
           fi
@@ -110,7 +110,7 @@ jobs:
           fi
 
       - name: Update repository update files
-        if: ${{ !github.event.inputs.prerelease }}
+        if: ${{ !inputs.prerelease }}
         shell: bash
         run: |
           cp dist/update.json update.json
@@ -125,6 +125,6 @@ jobs:
         with:
           tag_name: ${{ steps.meta.outputs.tag_name }}
           name: ${{ steps.meta.outputs.release_name }}
-          prerelease: ${{ github.event.inputs.prerelease }}
+          prerelease: ${{ inputs.prerelease }}
           files: dist/${{ steps.meta.outputs.package_name }}
           body_path: dist/release_notes.md
