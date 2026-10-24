@@ -8,6 +8,8 @@ pid_file="$path/pid"
 config_file="$path/config/config.toml"
 autostart_file="$path/autostart.conf"
 log_file="$path/error.log"
+# Keep service policy separate from WireGuard (pref 1) and ZeroTier (1002).
+rule_priority=1001
 
 # Internal calls always use private tools, independent of command mounting.
 bin_path="$path/$bin_name"
@@ -203,8 +205,8 @@ start_service() {
   nohup "$bin_path" -c "$config_file" > /dev/null 2> "$log_file" &
   printf '%s' "$!" > "$pid_file"
   sleep 1
-  ip rule add from all lookup main pref 1 2>/dev/null
   if bin_status; then
+    ip rule add from all lookup main pref "$rule_priority" 2>/dev/null || true
     echo "start success"
     rm -f "$path/.not_configured" 2>/dev/null
   else
@@ -222,11 +224,11 @@ stop_service() {
       i=$((i + 1))
     done
     bin_status && kill -9 "$(cat "$pid_file" 2>/dev/null)" 2>/dev/null
-    ip rule del from all lookup main pref 1 2>/dev/null
     hostname localhost
   else
     echo "${bin_name} is already stopped"
   fi
+  ip rule del from all lookup main pref "$rule_priority" 2>/dev/null || true
   rm -f "$pid_file" 2>/dev/null
 }
 

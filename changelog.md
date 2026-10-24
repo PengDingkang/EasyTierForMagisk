@@ -2,6 +2,7 @@
 
 **Upgrade notice: shell command mounting defaults to OFF for new installs and legacy upgrades without a saved preference.** After reboot, use `/data/adb/easytier/easytier` from a root shell and update scripts that relied on short command names. Previously saved mount choices are preserved.
 
+- Use a separate main-table policy priority for this service so stopping it preserves WireGuard and other modules; add lifecycle routing regression coverage.
 - Add the module-wide **Shell Command Mount** switch and `easytier mount {enable|disable|status|supported}` CLI commands; switching requires a reboot.
 - Disable the option and reject CLI enable requests on KernelSU without an enabled mounting metamodule. Magisk/APatch keep their built-in mounting support.
 - Use data-directory tools for WebUI, boot autostart and internal calls so the service remains available without system mounts.

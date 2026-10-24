@@ -99,6 +99,8 @@ WebUI 开关禁用并显示原因，CLI 也会拒绝开启。Magisk/APatch 使�
 `mount status` 是保存的设置，不代表当前已完成挂载。选择保存在
 `/data/adb/easytier/mount_enabled` 中；默认不挂载通过模块的 `skip_mount` 标记实现。
 
+启动服务时使用独立优先级 `1001` 的 `main` 路由规则；停止时只清理该规则，保留 WG 和其他模块的路由策略。
+
 ## 配置
 
 配置文件位于 `/data/adb/easytier/config/config.toml`，示例：

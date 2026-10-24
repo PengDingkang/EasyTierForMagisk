@@ -8,3 +8,4 @@ done
 sh tests/test_command_mount.sh
 python3 tests/test_core_fetch.py
 python3 tests/test_release_update.py
+python3 tests/test_routing_rules.py
