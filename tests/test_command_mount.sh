@@ -144,7 +144,9 @@ if [ "$wrapper" = easytier ]; then
   [ "$output" = 'private tool easytier-cli' ] || fail "CLI uses the PATH tool"
 else
   for tool in zerotier-cli zerotier-idtool; do
-    [ -L "$test_data/$tool" ] && [ -x "$test_data/$tool" ] || fail "$tool missing without mounts"
+    if [ ! -L "$test_data/$tool" ] || [ ! -x "$test_data/$tool" ]; then
+      fail "$tool missing without mounts"
+    fi
     [ "$(readlink "$test_data/$tool")" = zerotier-one ] || fail "$tool points outside data directory"
   done
 fi
