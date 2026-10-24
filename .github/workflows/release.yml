@@ -17,16 +17,26 @@ on:
         default: false
         type: boolean
 
+concurrency:
+  group: release-${{ github.repository }}
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Install tools
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck curl file zip unzip python3
 
       - name: Read module metadata
         id: meta
@@ -49,13 +59,18 @@ jobs:
           echo "release_name=${release_name}" >> "$GITHUB_OUTPUT"
           echo "package_name=${package_name}" >> "$GITHUB_OUTPUT"
 
-      - name: Validate shell scripts
+      - name: Validate and test
         shell: bash
-        run: |
-          sh -n customize.sh
-          sh -n boot-completed.sh
-          sh -n uninstall.sh
-          sh -n easytier
+        run: sh scripts/ci/validate.sh
+
+      - name: Cache verified upstream archive
+        uses: actions/cache@v6
+        with:
+          path: .cache/core
+          key: easytier-linux-aarch64-${{ hashFiles('CORE_VERSION', 'CORE_ASSET_SHA256') }}
+
+      - name: Fetch pinned EasyTier core
+        run: sh scripts/ci/fetch-core.sh
 
       - name: Create release package
         shell: bash
@@ -72,18 +87,6 @@ jobs:
             easytier-core \
             module.prop \
             uninstall.sh
-
-      - name: Generate update JSON
-        shell: bash
-        run: |
-          cat > dist/update.json <<EOF
-          {
-            "version": "${{ steps.meta.outputs.module_version }}",
-            "versionCode": $(sed -n 's/^versionCode=//p' module.prop),
-            "zipUrl": "https://github.com/${{ github.repository }}/releases/download/${{ steps.meta.outputs.tag_name }}/${{ steps.meta.outputs.package_name }}",
-            "changelog": "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/changelog.md"
-          }
-          EOF
 
       - name: Generate release notes from changelog
         shell: bash
@@ -109,22 +112,44 @@ jobs:
             exit 1
           fi
 
-      - name: Update repository update files
-        if: ${{ !inputs.prerelease }}
-        shell: bash
-        run: |
-          cp dist/update.json update.json
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add update.json
-          git diff --cached --quiet || git commit -m "Update update.json for ${{ steps.meta.outputs.tag_name }}"
-          git push origin HEAD:${{ github.ref_name }}
-
       - name: Create GitHub release
+        id: release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.meta.outputs.tag_name }}
           name: ${{ steps.meta.outputs.release_name }}
           prerelease: ${{ inputs.prerelease }}
           files: dist/${{ steps.meta.outputs.package_name }}
+          fail_on_unmatched_files: true
           body_path: dist/release_notes.md
+
+      - name: Verify public ZIP and prepare update metadata
+        if: ${{ !inputs.prerelease }}
+        env:
+          RELEASE_ASSETS: ${{ steps.release.outputs.assets }}
+          PACKAGE_NAME: ${{ steps.meta.outputs.package_name }}
+          RELEASE_TAG: ${{ steps.meta.outputs.tag_name }}
+        run: |
+          python3 scripts/ci/prepare-update.py \
+            --package "dist/$PACKAGE_NAME" \
+            --repository "$GITHUB_REPOSITORY" \
+            --tag "$RELEASE_TAG" \
+            --output dist/update.json
+
+      - name: Checkout current update branch
+        if: ${{ !inputs.prerelease }}
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: .update-metadata
+
+      - name: Publish stable update metadata
+        if: ${{ !inputs.prerelease }}
+        env:
+          UPDATE_BRANCH: ${{ github.event.repository.default_branch }}
+          RELEASE_TAG: ${{ steps.meta.outputs.tag_name }}
+        run: |
+          sh scripts/ci/publish-update.sh \
+            "$GITHUB_WORKSPACE/dist/update.json" \
+            "$GITHUB_WORKSPACE/.update-metadata" \
+            "$UPDATE_BRANCH" "$RELEASE_TAG"

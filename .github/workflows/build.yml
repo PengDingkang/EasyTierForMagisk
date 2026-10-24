@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
@@ -20,7 +20,7 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y shellcheck unzip
+          sudo apt-get install -y shellcheck curl file zip unzip python3
 
       - name: Read module metadata
         id: meta
@@ -33,17 +33,18 @@ jobs:
           echo "core_version=${core_version}" >> "$GITHUB_OUTPUT"
           echo "package_name=${package_name}" >> "$GITHUB_OUTPUT"
 
-      - name: Validate shell scripts
+      - name: Validate and test
         shell: bash
-        run: |
-          sh -n customize.sh
-          sh -n boot-completed.sh
-          sh -n uninstall.sh
-          sh -n easytier
-          shellcheck customize.sh
-          shellcheck boot-completed.sh
-          shellcheck uninstall.sh
-          shellcheck easytier
+        run: sh scripts/ci/validate.sh
+
+      - name: Cache verified upstream archive
+        uses: actions/cache@v6
+        with:
+          path: .cache/core
+          key: easytier-linux-aarch64-${{ hashFiles('CORE_VERSION', 'CORE_ASSET_SHA256') }}
+
+      - name: Fetch pinned EasyTier core
+        run: sh scripts/ci/fetch-core.sh
 
       - name: Create module package
         shell: bash
@@ -87,6 +88,9 @@ jobs:
           )
 
           forbidden_patterns=(
+            "^scripts/"
+            "^tests/"
+            "^\\.cache/"
             "^tmp/"
             "^dist/"
             "^\\.git/"

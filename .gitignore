@@ -1,0 +1,7 @@
+dist/
+.cache/
+*.zip
+easytier-core
+easytier-cli
+package-list.txt
+__pycache__/

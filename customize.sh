@@ -22,10 +22,13 @@ fi
 
 # detect environment
 if [ "$KSU" = true ]; then
+  root_framework=kernelsu
   ui_print "- KernelSU version: $KSU_VER ($KSU_VER_CODE)"
 elif [ "$APATCH" = true ]; then
+  root_framework=apatch
   ui_print "- APatch detected"
 else
+  root_framework=magisk
   ui_print "- Magisk version: $MAGISK_VER ($MAGISK_VER_CODE)"
 fi
 
@@ -37,6 +40,8 @@ if [ ! -d "$et_data/config" ]; then
   mkdir -p "$et_data/config"
   set_perm "$et_data" 0 0 0755
 fi
+
+printf '%s\n' "$root_framework" > "$et_data/root_framework" || abort "! Cannot save root framework"
 
 # install default config if not exists
 if [ ! -f "$et_data/config/config.toml" ]; then
@@ -56,27 +61,38 @@ if [ ! -f "$et_data/autostart.conf" ]; then
 fi
 rm -f "$MODPATH/config.toml"
 
-# install binaries to module system/bin overlay and data-dir fallback
-ui_print "- Installing binaries"
-mkdir -p "$MODPATH/system/bin"
-cp -f "$MODPATH/easytier-core" "$MODPATH/system/bin/"
-cp -f "$MODPATH/easytier-cli" "$MODPATH/system/bin/"
-cp -f "$MODPATH/easytier" "$MODPATH/system/bin/"
-cp -f "$MODPATH/easytier-core" "$et_data/easytier-core"
-cp -f "$MODPATH/easytier-cli" "$et_data/easytier-cli"
-cp -f "$MODPATH/easytier" "$et_data/easytier"
+# Install the only permanent copies into the private data directory.
+ui_print "- Installing private tools"
+cp -f "$MODPATH/easytier-core" "$et_data/easytier-core" || abort "! Cannot install easytier-core"
+cp -f "$MODPATH/easytier-cli" "$et_data/easytier-cli" || abort "! Cannot install easytier-cli"
+cp -f "$MODPATH/easytier" "$et_data/easytier" || abort "! Cannot install easytier"
+chmod 755 "$et_data/easytier-core" "$et_data/easytier-cli" "$et_data/easytier"
 rm -f "$MODPATH/easytier-core" "$MODPATH/easytier-cli" "$MODPATH/easytier"
 
-# permissions
 ui_print "- Setting permissions"
 set_perm_recursive "$MODPATH" 0 0 0755 0644
-set_perm "$MODPATH/system/bin/easytier-core" 0 0 0755
-set_perm "$MODPATH/system/bin/easytier-cli" 0 0 0755
-set_perm "$MODPATH/system/bin/easytier" 0 0 0755
-set_perm "$et_data/easytier-core" 0 0 0755
-set_perm "$et_data/easytier-cli" 0 0 0755
-set_perm "$et_data/easytier" 0 0 0755
+
+# Mountless by default; preserve only an explicitly saved enabled choice.
+mount_enabled=0
+if [ -f "$et_data/mount_enabled" ]; then
+  [ "$(cat "$et_data/mount_enabled")" = 1 ] && mount_enabled=1
+  ui_print "- Preserving saved shell command mount choice"
+else
+  ui_print "- New installs and legacy upgrades default to NO shell command mount"
+  ui_print "- After reboot, use full command paths; update scripts using short command names"
+fi
+printf '%s\n' "$mount_enabled" > "$et_data/mount_enabled" || abort "! Cannot save mount setting"
+sh "$et_data/easytier" prepare-command-mount "$MODPATH" "$mount_enabled" || abort "! Cannot prepare command mount"
+if [ "$mount_enabled" = 0 ]; then
+  ui_print "- Shell command mount: disabled"
+else
+  ui_print "- Shell command mount: enabled"
+fi
+if [ "$(sh "$et_data/easytier" mount supported)" != 1 ]; then
+  ui_print "- Shell command mount unavailable: no enabled mounting metamodule"
+fi
 
 ui_print "- Installation complete, reboot your device"
 ui_print "- Config: /data/adb/easytier/config/config.toml"
-ui_print "- Manage: easytier {start|stop|restart|status}"
+ui_print "- Manage: /data/adb/easytier/easytier {start|stop|restart|status}"
+ui_print "- Change shell command mount in WebUI (requires reboot)"

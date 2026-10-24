@@ -1,7 +1,7 @@
 #!/system/bin/sh
 
 path="/data/adb/easytier"
-module_bin="/data/adb/modules/EasyTierForMagisk/system/bin"
+module_dir="/data/adb/modules/EasyTierForMagisk"
 bin_name="easytier-core"
 cli_name="easytier-cli"
 pid_file="$path/pid"
@@ -9,26 +9,14 @@ config_file="$path/config/config.toml"
 autostart_file="$path/autostart.conf"
 log_file="$path/error.log"
 
-resolve_bin() {
-  name="$1"
-  if command -v "$name" >/dev/null 2>&1; then
-    command -v "$name"
-  elif [ -x "$path/$name" ]; then
-    echo "$path/$name"
-  elif [ -x "$module_bin/$name" ]; then
-    echo "$module_bin/$name"
-  else
-    echo "$name"
-  fi
-}
-
-bin_path="$(resolve_bin "$bin_name")"
-cli_path="$(resolve_bin "$cli_name")"
+# Internal calls always use private tools, independent of command mounting.
+bin_path="$path/$bin_name"
+cli_path="$path/$cli_name"
 
 run_cli() {
-  if [ ! -x "$cli_path" ] && ! command -v "$cli_path" >/dev/null 2>&1; then
+  if [ ! -x "$cli_path" ]; then
     echo "ERROR: $cli_name not found"
-    echo "Expected one of: PATH, $path/$cli_name, $module_bin/$cli_name"
+    echo "Expected private tool: $cli_path"
     return 1
   fi
   "$cli_path" "$@"
@@ -43,6 +31,118 @@ done
 
 bin_status() {
   [ "$($busybox pidof "$bin_name")" ] && return 0 || return 1
+}
+
+get_command_mount() {
+  if [ -f "$module_dir/skip_mount" ]; then
+    echo 0
+  else
+    echo 1
+  fi
+}
+
+is_mounting_metamodule() {
+  [ -f "$1/module.prop" ] && [ -f "$1/metamount.sh" ] || return 1
+  [ ! -e "$1/disable" ] && [ ! -e "$1/remove" ] || return 1
+  awk -F= '
+    { key = $1; value = $2; gsub(/^[[:space:]]+|[[:space:]]+$/, "", key); gsub(/^[[:space:]]+|[[:space:]]+$/, "", value) }
+    key == "metamodule" && (value == "1" || tolower(value) == "true") { found = 1 }
+    END { exit found ? 0 : 1 }
+  ' "$1/module.prop"
+}
+
+command_mount_supported() {
+  # The installer records the framework so WebUI/terminal environments need
+  # not export KSU or APATCH. Magisk and APatch provide their own mounting.
+  case "$(cat "$path/root_framework" 2>/dev/null)" in
+    magisk|apatch) return 0 ;;
+  esac
+
+  mount_modules="${module_dir%/*}"
+  mount_meta="${mount_modules%/*}/metamodule"
+  # Prefer KernelSU's selected provider; a disabled provider is unavailable.
+  if [ -d "$mount_meta" ]; then
+    is_mounting_metamodule "$mount_meta"
+    return $?
+  fi
+  for mount_provider in "$mount_modules"/*; do
+    is_mounting_metamodule "$mount_provider" && return 0
+  done
+  return 1
+}
+
+# Called by both the installer and the settings command. Keep private tools
+# authoritative; create system copies only when mounting is requested.
+prepare_command_mount() {
+  cm_target="$1"
+  cm_enabled="$2"
+  case "$cm_enabled" in 0|1) ;; *) return 1 ;; esac
+  [ -d "$cm_target" ] || return 1
+  [ ! -L "$cm_target/system" ] && [ ! -L "$cm_target/system/bin" ] || return 1
+  if [ "$cm_enabled" = 0 ]; then
+    touch "$cm_target/skip_mount" || return 1
+    for cm_tool in easytier-core easytier-cli easytier ; do
+      rm -f "$cm_target/system/bin/$cm_tool" || return 1
+    done
+    rmdir "$cm_target/system/bin" "$cm_target/system" 2>/dev/null || true
+    return 0
+  fi
+  cm_tmp=$(mktemp -d "$cm_target/.command-mount.XXXXXX") || return 1
+  if ! (
+    for cm_tool in easytier-core easytier-cli easytier; do
+      cp "$path/$cm_tool" "$cm_tmp/$cm_tool" || exit 1
+      chmod 755 "$cm_tmp/$cm_tool" || exit 1
+    done
+    :
+    mkdir -p "$cm_target/system/bin" || exit 1
+    for cm_tool in easytier-core easytier-cli easytier ; do
+      mv -f "$cm_tmp/$cm_tool" "$cm_target/system/bin/$cm_tool" || exit 1
+    done
+  ); then
+    rm -rf "$cm_tmp"
+    return 1
+  fi
+  rm -rf "$cm_tmp"
+  rm -f "$cm_target/skip_mount"
+}
+
+set_command_mount() {
+  mount_enabled="$1"
+  if [ ! -d "$module_dir" ]; then
+    echo "ERROR: EasyTier module directory not found" >&2
+    return 1
+  fi
+  if [ "$mount_enabled" = 1 ] && ! command_mount_supported; then
+    echo "ERROR: No mount provider available; KernelSU requires an enabled mounting metamodule" >&2
+    return 1
+  fi
+  mkdir -p "$path" || return 1
+  mount_previous=$(get_command_mount)
+  mount_parent="${module_dir%/*}"
+  mount_pending="${mount_parent%/*}/modules_update/${module_dir##*/}"
+  mount_pending_previous=1
+  [ ! -f "$mount_pending/skip_mount" ] || mount_pending_previous=0
+  mount_tmp=$(mktemp "$path/.mount_enabled.XXXXXX") || return 1
+  if ! printf '%s\n' "$mount_enabled" > "$mount_tmp"; then
+    rm -f "$mount_tmp"
+    return 1
+  fi
+  mount_saved=0
+  if prepare_command_mount "$module_dir" "$mount_enabled"; then
+    if [ ! -d "$mount_pending" ] || prepare_command_mount "$mount_pending" "$mount_enabled"; then
+      if mv -f "$mount_tmp" "$path/mount_enabled"; then mount_saved=1; fi
+    fi
+  fi
+  if [ "$mount_saved" != 1 ]; then
+    prepare_command_mount "$module_dir" "$mount_previous" || true
+    if [ -d "$mount_pending" ]; then
+      prepare_command_mount "$mount_pending" "$mount_pending_previous" || true
+    fi
+    rm -f "$mount_tmp"
+    echo "ERROR: Cannot save shell command mount setting" >&2
+    return 1
+  fi
+  echo "Shell command mount saved; reboot to apply"
 }
 
 get_autostart() {
@@ -88,9 +188,9 @@ start_service() {
     echo "${bin_name} is already running"
     return
   fi
-  if [ ! -x "$bin_path" ] && ! command -v "$bin_path" >/dev/null 2>&1; then
+  if [ ! -x "$bin_path" ]; then
     echo "ERROR: $bin_name not found"
-    echo "Expected one of: PATH, $path/$bin_name, $module_bin/$bin_name"
+    echo "Expected private tool: $bin_path"
     return 1
   fi
   if [ ! -f "$config_file" ]; then
@@ -131,6 +231,16 @@ stop_service() {
 }
 
 case "$1" in
+  prepare-command-mount) prepare_command_mount "$2" "$3" ;;
+  mount)
+    case "$2" in
+      enable) set_command_mount 1 ;;
+      disable) set_command_mount 0 ;;
+      status|"") get_command_mount ;;
+      supported) if command_mount_supported; then echo 1; else echo 0; fi ;;
+      *) echo "Usage: easytier mount {enable|disable|status|supported}" >&2; exit 1 ;;
+    esac
+    ;;
   start)     start_service; display_bin_status ;;
   stop)      stop_service; display_bin_status ;;
   restart)   stop_service; start_service; display_bin_status ;;
@@ -138,5 +248,5 @@ case "$1" in
   enable)    set_autostart 1; echo "boot auto start: enabled" ;;
   disable)   set_autostart 0; echo "boot auto start: disabled" ;;
   cli)       shift; run_cli "$@" ;;
-  *)         echo "Usage: easytier {start|stop|restart|status|enable|disable}" ;;
+  *)         echo "Usage: easytier {start|stop|restart|status|enable|disable}; easytier mount {enable|disable|status|supported}" ;;
 esac

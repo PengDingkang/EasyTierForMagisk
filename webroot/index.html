@@ -92,6 +92,18 @@ h2 { font-size: 18px; margin-bottom: 12px; }
   </div>
 </div>
 
+<div class="card">
+  <h2>Shell Command Mount</h2>
+  <div class="row wrap">
+    <label class="toggle">
+      <input type="checkbox" id="commandMountToggle" onchange="saveCommandMount(this.checked)" disabled>
+      <span>Mount command-line tools</span>
+    </label>
+    <span id="commandMountStatus" style="font-size:13px;color:var(--dim)">Loading...</span>
+  </div>
+  <div class="toggle-hint" id="commandMountHint">Adds easytier-core, easytier-cli and easytier to the system command path for terminals. Off by default; EasyTier and WebUI work with this off. Changes take effect after reboot.</div>
+</div>
+
 <div id="toast" class="toast"></div>
 
 <div class="card">
@@ -106,8 +118,8 @@ h2 { font-size: 18px; margin-bottom: 12px; }
 import { exec } from 'https://esm.sh/kernelsu';
 
 const ET_DATA = '/data/adb/easytier';
-const ET_CMD_FALLBACK = `${ET_DATA}/easytier`;
-let etCmd = 'easytier';
+const etCmd = `${ET_DATA}/easytier`;
+let commandMountSaving = false;
 
 async function run(cmd) {
   try {
@@ -118,10 +130,53 @@ async function run(cmd) {
   }
 }
 
-async function initCmd() {
-  const r = await run('command -v easytier 2>/dev/null || which easytier 2>/dev/null');
-  if (!r.stdout.trim()) etCmd = ET_CMD_FALLBACK;
+async function refreshCommandMount() {
+  if (commandMountSaving) return;
+  const [r, support] = await Promise.all([
+    run(`${etCmd} mount status`),
+    run(`${etCmd} mount supported`)
+  ]);
+  if (commandMountSaving) return;
+  const value = r.stdout.trim();
+  const toggle = document.getElementById('commandMountToggle');
+  const status = document.getElementById('commandMountStatus');
+  const hint = document.getElementById('commandMountHint');
+  const available = support.stdout.trim();
+  if (r.errno !== 0 || support.errno !== 0 || !['0', '1'].includes(value) || !['0', '1'].includes(available)) {
+    toggle.disabled = true;
+    status.textContent = 'Unavailable';
+    hint.textContent = 'Cannot check mounting support. Try reopening the WebUI.';
+    return;
+  }
+  if (available === '0') {
+    toggle.checked = false;
+    toggle.disabled = true;
+    status.textContent = 'Unavailable: no mount provider';
+    hint.textContent = 'KernelSU requires an enabled mounting metamodule, such as MMRS or meta-overlayfs. EasyTier and WebUI work without one.';
+    return;
+  }
+  toggle.checked = value === '1';
+  toggle.disabled = false;
+  status.textContent = toggle.checked ? 'Configured: On' : 'Configured: Off';
+  hint.textContent = 'Adds easytier-core, easytier-cli and easytier to the system command path for terminals. Off by default; EasyTier and WebUI work with this off. Changes take effect after reboot.';
 }
+
+window.saveCommandMount = async function(enabled) {
+  commandMountSaving = true;
+  const toggle = document.getElementById('commandMountToggle');
+  const status = document.getElementById('commandMountStatus');
+  toggle.disabled = true;
+  status.textContent = 'Saving...';
+  const r = await run(`${etCmd} mount ${enabled ? 'enable' : 'disable'}`);
+  commandMountSaving = false;
+  await refreshCommandMount();
+  if (r.errno === 0) {
+    toast('Mount setting saved. Reboot to apply.');
+  } else {
+    toast('Save failed: ' + (r.stderr || r.stdout), true);
+  }
+};
+
 
 function et(args) {
   return `${etCmd} ${args}`;
@@ -336,10 +391,9 @@ window.clearLog = async function() {
   }
 };
 
-initCmd().then(() => {
-  refresh();
-  setInterval(refresh, 10000);
-});
+refresh();
+refreshCommandMount();
+setInterval(() => { refresh(); refreshCommandMount(); }, 10000);
 </script>
 </body>
 </html>

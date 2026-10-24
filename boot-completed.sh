@@ -2,17 +2,6 @@
 # EasyTier boot-completed script (module script, NOT general script)
 # Runs after boot is fully completed
 
-resolve_easytier() {
-  if command -v easytier >/dev/null 2>&1; then
-    command -v easytier
-  elif [ -x /data/adb/easytier/easytier ]; then
-    echo /data/adb/easytier/easytier
-  elif [ -x /data/adb/modules/EasyTierForMagisk/system/bin/easytier ]; then
-    echo /data/adb/modules/EasyTierForMagisk/system/bin/easytier
-  else
-    return 1
-  fi
-}
 
 (
   until [ "$(getprop sys.boot_completed)" = "1" ]; do
@@ -28,10 +17,11 @@ resolve_easytier() {
     auto_start=${AUTO_START:-1}
   fi
   [ "$auto_start" = "1" ] || exit 0
-  easytier_cmd=$(resolve_easytier) || {
-    echo "ERROR: easytier command not found" >> /data/adb/easytier/error.log
+  easytier_cmd="/data/adb/easytier/easytier"
+  if [ ! -x "$easytier_cmd" ]; then
+    echo "ERROR: private easytier command not found" >> /data/adb/easytier/error.log
     exit 1
-  }
+  fi
   # set hostname from instance_name in config
   hn=$(grep -m1 'instance_name' /data/adb/easytier/config/config.toml 2>/dev/null | sed 's/.*= *"\(.*\)"/\1/')
   [ -n "$hn" ] && hostname "$hn"
